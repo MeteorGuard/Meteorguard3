@@ -1,0 +1,269 @@
+import streamlit as st # pyright: ignore[reportMissingImports]
+import pandas as pd # pyright: ignore[reportMissingModuleSource]
+import requests # pyright: ignore[reportMissingModuleSource]
+import plotly.express as px  # pyright: ignore[reportMissingImports]
+from datetime import datetime, timedelta
+
+st.set_page_config(
+    page_title="MeteorGuard | NASA Space Apps",
+    page_icon="☄️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+st.title("☄️ MeteorGuard: A Real-Time Meteor Impact Tracking System")
+st.markdown("""
+    Developed for the **NASA Space Apps Izmir Hackathon**, this application harnesses NASA's publicly available data to
+    visualize meteor impacts in real-time and generate a dynamic risk assessment map.
+""")
+
+@st.cache_data(ttl=3600)
+def get_nasa_fireball_data(days=30):
+    """
+    Retrieves fireball data from NASA's API, fetching records for a specified number of past days.
+    """
+    try:
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days)
+        
+        start_date_str = start_date.strftime("%Y-%m-%d")
+        
+        api_url = f"https://ssd-api.jpl.nasa.gov/fireball.api?date-min={start_date_str}&req-loc=true"
+        
+        response = requests.get(api_url)
+        response.raise_for_status()  
+        
+        data = response.json()
+        headers = data['fields']
+        records = data['data']
+        
+        df = pd.DataFrame(records, columns=headers)
+    
+        for col in ['lat', 'lon', 'energy', 'impact_e']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        
+        df.rename(columns={
+            'lat': 'latitude',
+            'lon': 'longitude',
+            'energy': 'energy_kton'
+        }, inplace=True)
+
+        return df
+    
+    except requests.exceptions.RequestException as e:
+        st.error(f"A request error occurred while fetching data from the API: {e}")
+        return pd.DataFrame() 
+    except Exception as e:
+        st.error(f"An error occurred during data processing: {e}")
+        return pd.DataFrame()
+
+def calculate_risk_score(df):
+    """
+    Computes a simplified risk score based on the meteor's energy level.
+    """
+    if 'energy_kton' in df.columns:
+        
+        max_energy = df['energy_kton'].max() if not df['energy_kton'].empty else 1
+        df['risk_score'] = (df['energy_kton'] / max_energy) * 100
+        df['risk_score'] = df['risk_score'].round(2)
+    else:
+        df['risk_score'] = 0
+    return df
+
+st.sidebar.header("Application Controls")
+st.sidebar.markdown("""
+    Customize the dataset and visualization using the filters below.
+""")
+
+days_to_load = st.sidebar.slider(
+    'Days of Data to Display',
+    min_value=1, max_value=365, value=30, step=1
+)
+
+df = get_nasa_fireball_data(days=days_to_load)
+
+if not df.empty:
+    df.dropna(subset=['latitude', 'longitude', 'energy_kton'], inplace=True)
+    df = calculate_risk_score(df)
+
+   
+    min_risk = st.sidebar.slider(
+        'Minimum Risk Score',
+        min_value=0.0, max_value=100.0,
+        value=0.0, step=1.0
+    )
+
+    filtered_df = df[df['risk_score'] >= min_risk].copy()
+
+    st.markdown("---")
+    
+    st.subheader("Global Meteor Impact Map")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Meteors", len(df))
+    col2.metric("Filtered Results", len(filtered_df))
+    col3.metric("Maximum Energy", f"{df['energy_kton'].max():.2f} kton")
+
+    if not filtered_df.empty:
+        
+        fig = px.scatter_geo(
+            filtered_df,
+            lat='latitude',
+            lon='longitude',
+            color='risk_score',
+            hover_name='date',
+            hover_data={
+                'energy_kton': ':.2f',
+                'risk_score': True,
+                'latitude': ':.2f',
+                'longitude': ':.2f'
+            },
+            color_continuous_scale=px.colors.sequential.Inferno,
+            size='energy_kton',
+            title='Meteor Impacts and Risk Assessment Map',
+            projection="natural earth",
+            template="plotly_dark"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        st.markdown("---")
+        
+        st.subheader("Tabulated Meteor Data")
+        st.dataframe(filtered_df[['date', 'latitude', 'longitude', 'energy_kton', 'risk_score']].sort_values('risk_score', ascending=False), use_container_width=True)
+    else:
+        st.warning("No meteor data matches the selected filters. Please adjust your criteria.")
+        st.image("https://media.giphy.com/media/l4KihpM182d4Qx6H6/giphy.gif", use_column_width=True)
+
+else:
+    st.error("Failed to retrieve data from the API. Please try again later.")
+    
+import geocoder  # pyright: ignore[reportMissingImports]
+import numpy as np # pyright: ignore[reportMissingImports]
+import plotly.graph_objects as go # pyright: ignore[reportMissingImports]
+
+st.markdown("---")
+st.header("🧠 Advanced Analytics and Tools")
+
+try:
+    user_location = geocoder.ip('me')
+    if user_location.lat and user_location.lng:
+        st.sidebar.write(f"🌍 Approximate Location: *{user_location.city}, {user_location.country}*")
+        if not df.empty:
+            df['distance'] = ((df['latitude'] - user_location.lat)*2 + (df['longitude'] - user_location.lng))*0.5
+            nearest = df.sort_values('distance').head(1)
+            st.sidebar.success(
+                f"☄️ *Nearest Meteor:* {nearest.iloc[0]['date']} \n\n"
+                f"📍 Distance: {nearest.iloc[0]['distance']:.2f}° | "
+                f"⚡ Energy: {nearest.iloc[0]['energy_kton']:.2f} kton"
+            )
+except Exception:
+    st.sidebar.warning("Couldn't detect your location automatically.")
+
+if not df.empty:
+    max_risk = df['risk_score'].max()
+    if max_risk > 80:
+        st.sidebar.error("🚨 High-Risk Meteor Detected!")
+    elif max_risk > 50:
+        st.sidebar.warning("🟠 Medium Meteor Activity Detected.")
+    else:
+        st.sidebar.success("🟢 Low Meteor Activity — No Major Threats.")
+
+if not df.empty and 'date' in df.columns:
+    try:
+        df['date'] = pd.to_datetime(df['date'], errors='coerce')
+        daily_counts = df.groupby(df['date'].dt.date).size().reset_index(name='count')
+        fig2 = px.line(
+            daily_counts,
+            x='date',
+            y='count',
+            title='📊 Meteor Frequency Over Time',
+            markers=True,
+            template='plotly_dark'
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Couldn't render daily frequency chart: {e}")
+
+def predict_future_impacts(df, days_ahead=7):
+    if df.empty:
+        return 0
+    df['date'] = pd.to_datetime(df['date'], errors='coerce')
+    duration_days = (df['date'].max() - df['date'].min()).days or 1
+    avg_per_day = len(df) / duration_days
+    return int(avg_per_day * days_ahead)
+
+predicted_hits = predict_future_impacts(df)
+st.info(f"🧮 Estimated meteor impacts in the next 7 days: *{predicted_hits} events (approx.)*")
+
+st.markdown("---")
+enable_3d = st.checkbox("🌌 Enable 3D Globe Visualization")
+
+if enable_3d and not df.empty:
+    fig3 = go.Figure(
+        data=go.Scatter3d(
+            x=df['longitude'],
+            y=df['latitude'],
+            z=df['energy_kton'],
+            mode='markers',
+            marker=dict(
+                size=5,
+                color=df['risk_score'],
+                colorscale='Inferno',
+                opacity=0.8,
+                colorbar=dict(title='Risk Level')
+            )
+        )
+    )
+    fig3.update_layout(
+        title="🌍 3D Meteor Impact Energy Visualization",
+        scene=dict(
+            xaxis_title='Longitude',
+            yaxis_title='Latitude',
+            zaxis_title='Energy (kton)'
+        ),
+        template='plotly_dark',
+        height=700
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+
+if not df.empty:
+    st.download_button(
+        "💾 Download Meteor Data (CSV)",
+        data=df.to_csv(index=False).encode('utf-8'),
+        file_name='meteor_data.csv',
+        mime='text/csv'
+    )
+    st.markdown("---")
+st.header("🧮 Meteor Impact Simulator")
+
+mass = st.number_input("Meteor Mass (tons)", min_value=0.1, value=10.0, step=0.1)
+velocity = st.number_input("Velocity (km/s)", min_value=1.0, value=20.0, step=0.5)
+density = st.selectbox("Composition", ["Iron", "Stone", "Ice"])
+angle = st.slider("Impact Angle (degrees)", 10, 90, 45)
+surface = st.selectbox("Impact Surface", ["Land", "Ocean", "Mountain", "Ice Field"])
+
+if st.button("💥 Simulate Impact"):
+    # Convert to SI units
+    m_kg = mass * 1000  
+    v_ms = velocity * 1000  
+    
+    # Kinetic Energy (Joules)
+    E_joule = 0.5 * m_kg * (v_ms ** 2)
+    E_kton = E_joule / 4.184e12  
+    
+    # Estimate impact radius (km)
+    radius_km = (E_kton ** (1/3)) * 2
+    
+    st.success(f"💣 Estimated Energy: {E_kton:.2f} kilotons TNT")
+    st.info(f"🌍 Approximate Impact Radius: {radius_km:.2f} km")
+    
+    if E_kton > 1000:
+        st.error("🚨 Massive Event: Global-level destruction possible!")
+    elif E_kton > 100:
+        st.warning("⚠️ Regional Damage Expected")
+    else:
+        st.success("🟢 Local Impact — Limited damage")
+
+    st.markdown(f"*Surface Type:* {surface} | *Composition:* {density} | *Angle:* {angle}°")
