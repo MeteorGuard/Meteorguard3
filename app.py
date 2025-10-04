@@ -267,3 +267,79 @@ if st.button("💥 Simulate Impact"):
         st.success("🟢 Local Impact — Limited damage")
 
     st.markdown(f"*Surface Type:* {surface} | *Composition:* {density} | *Angle:* {angle}°")
+    st.markdown("---")
+st.header("🌠 Meteor Info Corner")
+
+# Ana bilgi metni
+st.markdown("""
+Meteors, also known as meteoroids when in space, are fragments of rock or metal that enter Earth's atmosphere. 
+Most are small and burn up upon entry, but larger meteors can cause significant damage.
+""")
+
+# İlginç bilgiler
+st.subheader("💡 Interesting Facts")
+st.markdown("""
+- The largest recorded meteor event was the *Tunguska event (1908, Siberia)*, which flattened ~2,000 km² of forest.  
+- Earth is hit by about *100 tons of meteoritic dust daily*.  
+- Most meteors are composed of *stone* or *iron*.  
+- Meteor velocities typically range between *11 km/s and 72 km/s*.  
+- Large meteor impacts have historically caused *mass extinctions*, like the one that wiped out the dinosaurs.
+""")
+
+# Görsel ekleme (NASA / Meteor görüntüsü)
+st.image("https://www.nasa.gov/sites/default/files/thumbnails/image/meteor_0.jpg", caption="Meteor entering Earth's atmosphere", use_column_width=True)
+
+# Interaktif küçük widget: Sıkça sorulan soru
+st.subheader("❓ Test Your Knowledge")
+q1 = st.radio(
+    "Which of the following is NOT a typical meteor composition?",
+    ("Iron", "Stone", "Ice", "Plastic")
+)
+
+if q1:
+    if q1 == "Plastic":
+        st.success("✅ Correct! Meteors are mostly made of stone, iron, or ice.")
+    else:
+        st.error("❌ Not quite. Remember, meteors are natural rocks or metals!")
+
+# Küçük animasyon / GIF
+st.markdown("Watch a meteor streak across the sky:")
+st.image("https://media.giphy.com/media/26n6WywJyh39n1pBu/giphy.gif", use_column_width=True)
+# ===========================
+# 🌠 METEOR INFO CORNER
+# ===========================
+import streamlit as st
+
+st.markdown("---")
+st.header("🌠 Meteor Info Corner")
+
+st.markdown("""
+Meteors, also known as meteoroids when in space, are fragments of rock or metal that enter Earth's atmosphere. 
+Most are small and burn up upon entry, but larger meteors can cause significant damage.
+""")
+
+st.subheader("💡 Interesting Facts")
+st.markdown("""
+- The largest recorded meteor event was the *Tunguska event (1908, Siberia)*, which flattened ~2,000 km² of forest.  
+- Earth is hit by about *100 tons of meteoritic dust daily*.  
+- Most meteors are composed of *stone* or *iron*.  
+- Meteor velocities typically range between *11 km/s and 72 km/s*.  
+- Large meteor impacts have historically caused *mass extinctions*, like the one that wiped out the dinosaurs.
+""")
+
+st.image("https://www.nasa.gov/sites/default/files/thumbnails/image/meteor_0.jpg", caption="Meteor entering Earth's atmosphere", use_column_width=True)
+
+st.subheader("❓ Test Your Knowledge")
+q1 = st.radio(
+    "Which of the following is NOT a typical meteor composition?",
+    ("Iron", "Stone", "Ice", "Plastic")
+)
+
+if q1:
+    if q1 == "Plastic":
+        st.success("✅ Correct! Meteors are mostly made of stone, iron, or ice.")
+    else:
+        st.error("❌ Not quite. Remember, meteors are natural rocks or metals!")
+
+st.markdown("Watch a meteor streak across the sky:")
+st.image("https://media.giphy.com/media/26n6WywJyh39n1pBu/giphy.gif", use_column_width=True)
