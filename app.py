@@ -5,16 +5,14 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
-# Attempt to import optional libraries
 try:
     import geocoder
     import numpy as np
 except ImportError:
-    st.warning("Dependencies 'geocoder' and 'numpy' are not installed. Some features (location/distance) will be disabled.")
+    st.warning("Gerekli kütüphaneler ('geocoder' ve 'numpy') yüklü değil. Konum/Mesafe gibi bazı özellikler devre dışı bırakılacaktır.")
     geocoder = None
     np = None
 
-# --- Configuration ---
 
 st.set_page_config(
     page_title="MeteorGuard | NASA Space Apps",
@@ -29,8 +27,6 @@ st.markdown("""
     visualize meteor impacts in real-time and generate a dynamic risk assessment map.
 """)
 
-# --- Data Loading and Processing Functions ---
-
 @st.cache_data(ttl=3600)
 def get_nasa_fireball_data(days=30):
     """Retrieves fireball data from NASA's API."""
@@ -39,7 +35,6 @@ def get_nasa_fireball_data(days=30):
         start_date = end_date - timedelta(days=days)
         start_date_str = start_date.strftime("%Y-%m-%d")
         
-        # NASA Fireball API URL
         api_url = f"https://ssd-api.jpl.nasa.gov/fireball.api?date-min={start_date_str}&req-loc=true"
         
         response = requests.get(api_url)
@@ -64,10 +59,10 @@ def get_nasa_fireball_data(days=30):
         return df
     
     except requests.exceptions.RequestException as e:
-        st.error(f"A request error occurred while fetching data from the API: {e}")
+        st.error(f"API'den veri çekerken bir istek hatası oluştu: {e}")
         return pd.DataFrame() 
     except Exception as e:
-        st.error(f"An error occurred during data processing: {e}")
+        st.error(f"Veri işleme sırasında bir hata oluştu: {e}")
         return pd.DataFrame()
 
 def calculate_risk_score(df):
@@ -96,8 +91,6 @@ def predict_future_impacts(df, days_ahead=7):
     return int(avg_per_day * days_ahead)
 
 
-# --- Sidebar Controls and Data Fetching ---
-
 st.sidebar.header("Application Controls")
 st.sidebar.markdown("""
     Customize the dataset and visualization using the filters below.
@@ -110,13 +103,12 @@ days_to_load = st.sidebar.slider(
 
 df = get_nasa_fireball_data(days=days_to_load)
 
-# --- Main Application Logic ---
 
 if not df.empty:
     df.dropna(subset=['latitude', 'longitude', 'energy_kton'], inplace=True)
     df = calculate_risk_score(df)
     
-    # Risk Filter
+   
     min_risk = st.sidebar.slider(
         'Minimum Risk Score',
         min_value=0.0, max_value=100.0,
@@ -125,14 +117,14 @@ if not df.empty:
 
     filtered_df = df[df['risk_score'] >= min_risk].copy()
 
-    # --- Geo-Location and Risk Status (Sidebar) ---
+   
     if geocoder and np:
         try:
             user_location = geocoder.ip('me')
             if user_location.lat and user_location.lng:
                 st.sidebar.write(f"🌍 Approximate Location: **{user_location.city}, {user_location.country}**")
                 
-                # Calculate Distance (Simplified degree difference using NumPy)
+                
                 df['distance'] = np.sqrt((df['latitude'] - user_location.lat)**2 + (df['longitude'] - user_location.lng)**2)
                 nearest = df.sort_values('distance').head(1)
                 
@@ -145,7 +137,7 @@ if not df.empty:
         except Exception:
             st.sidebar.warning("Couldn't detect your location automatically.")
     
-    # Global Risk Assessment
+    
     max_risk = df['risk_score'].max() if not df['risk_score'].empty else 0
     if max_risk > 80:
         st.sidebar.error("🚨 **High-Risk Meteor Detected!**")
@@ -154,8 +146,7 @@ if not df.empty:
     else:
         st.sidebar.success("🟢 **Low Meteor Activity** — No Major Threats.")
 
-    # --- Metrics and Map Visualization ---
-    
+
     st.markdown("---")
     st.subheader("Global Meteor Impact Map")
     
@@ -165,6 +156,7 @@ if not df.empty:
     col3.metric("Maximum Energy", f"{df['energy_kton'].max():.2f} kton" if not df['energy_kton'].empty else "0.00 kton")
 
     if not filtered_df.empty:
+        
         fig = px.scatter_geo(
             filtered_df,
             lat='latitude',
@@ -187,7 +179,6 @@ if not df.empty:
 
         st.markdown("---")
         
-        # --- Data Table and Download ---
         st.subheader("Tabulated Meteor Data")
         st.dataframe(filtered_df[['date', 'latitude', 'longitude', 'energy_kton', 'risk_score']].sort_values('risk_score', ascending=False), use_container_width=True)
         
@@ -200,18 +191,14 @@ if not df.empty:
         
     else:
         st.warning("No meteor data matches the selected filters. Please adjust your criteria.")
-        st.image("https://media.giphy.com/media/l4KihpM182d4Qx6H6/giphy.gif", use_column_width=True)
 
 else:
     st.error("Failed to retrieve data from the API. Please try again later.")
-    
-# -----------------------------
-# Advanced Analytics and Tools
-# -----------------------------
+
 st.markdown("---")
 st.header("🧠 Advanced Analytics and Tools")
 
-# Frequency Chart
+
 if not df.empty and 'date' in df.columns:
     try:
         df['date'] = pd.to_datetime(df['date'], errors='coerce')
@@ -231,7 +218,7 @@ if not df.empty and 'date' in df.columns:
 predicted_hits = predict_future_impacts(df)
 st.info(f"🧮 Estimated meteor impacts in the next 7 days: **{predicted_hits} events** (approx.)")
 
-# 3D Visualization
+
 st.markdown("---")
 enable_3d = st.checkbox("🌌 Enable 3D Globe Visualization")
 
@@ -265,13 +252,8 @@ if enable_3d and not df.empty:
 
 st.markdown("---")
 
-# -----------------------------
-# 🧮 Meteor Impact Simulator
-# -----------------------------
-
 st.header("🧮 Meteor Impact Simulator")
 
-# Note: Using unique keys for components to avoid Streamlit warning/errors due to re-definition.
 mass = st.number_input("Meteor Mass (tons)", min_value=0.1, value=10.0, step=0.1, key="sim_mass")
 velocity = st.number_input("Velocity (km/s)", min_value=1.0, value=20.0, step=0.5, key="sim_velocity")
 density = st.selectbox("Composition", ["Iron", "Stone", "Ice"], key="sim_density")
@@ -279,22 +261,21 @@ angle = st.slider("Impact Angle (degrees)", 10, 90, 45, key="sim_angle")
 surface = st.selectbox("Impact Surface", ["Land", "Ocean", "Mountain", "Ice Field"], key="sim_surface")
 
 if st.button("💥 Simulate Impact"):
-    # Convert to SI units
-    m_kg = mass * 1000  # tons to kg
-    v_ms = velocity * 1000  # km/s to m/s
+   
+    m_kg = mass * 1000  # ton -> kg
+    v_ms = velocity * 1000  # km/s -> m/s
     
-    # 1. Kinetic Energy (Joules): E = 0.5 * m * v^2
     E_joule = 0.5 * m_kg * (v_ms ** 2)
-    # 2. Convert to kilotons TNT (1 kton TNT = 4.184e12 J)
+    
     E_kton = E_joule / 4.184e12  
     
-    # 3. Estimate Impact Radius (Simplified approximation: R_km ~ 2 * E_kton^(1/3))
+    
     radius_km = (E_kton ** (1/3)) * 2
     
     st.success(f"💣 **Estimated Energy:** {E_kton:.2f} kilotons TNT")
     st.info(f"🌍 **Approximate Impact Radius:** {radius_km:.2f} km")
     
-    # Risk assessment based on energy levels
+    
     if E_kton > 5000:
         st.error("🚨 **CATACLYSMIC EVENT:** Tsunami, global climate change, and mass extinction possible!")
     elif E_kton > 1000:
@@ -307,9 +288,7 @@ if st.button("💥 Simulate Impact"):
     st.markdown(f"**Surface Type:** {surface} | **Composition:** {density} | **Angle:** {angle}°")
     st.markdown("---")
 
-# -----------------------------
-# 🌠 Meteor Info Corner
-# -----------------------------
+
 st.header("🌠 Meteor Info Corner")
 
 st.markdown("""
@@ -326,7 +305,7 @@ st.markdown("""
 - Large meteor impacts have historically caused **mass extinctions**, like the one that wiped out the dinosaurs.
 """)
 
-st.image("https://www.nasa.gov/sites/default/files/thumbnails/image/meteor_0.jpg", caption="Meteor entering Earth's atmosphere", use_column_width=True)
+# GIF/Resim kaldırıldı
 
 st.subheader("❓ Test Your Knowledge")
 q1 = st.radio(
@@ -340,5 +319,3 @@ if q1:
     else:
         st.error("❌ Not quite. Remember, meteors are natural rocks or metals!")
 
-st.markdown("Watch a meteor streak across the sky:")
-st.image("https://media.giphy.com/media/26n6WywJyh39n1pBu/giphy.gif", use_column_width=True)
