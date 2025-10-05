@@ -9,7 +9,6 @@ try:
     import geocoder
     import numpy as np
 except ImportError:
-    st.warning("Gerekli kütüphaneler ('geocoder' ve 'numpy') yüklü değil. Konum/Mesafe gibi bazı özellikler devre dışı bırakılacaktır.")
     geocoder = None
     np = None
 
