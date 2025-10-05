@@ -9,6 +9,10 @@ try:
     import geocoder
     import numpy as np
 except ImportError:
+    st.warning("Gerekli kütüphaneler ('geocoder' ve 'numpy') yüklü değil. Konum/Mesafe gibi bazı özellikler devre dışı bırakılacaktır.")
+    geocoder = None
+    np = None
+
 
 st.set_page_config(
     page_title="MeteorGuard | NASA Space Apps",
@@ -301,8 +305,6 @@ st.markdown("""
 - Large meteor impacts have historically caused **mass extinctions**, like the one that wiped out the dinosaurs.
 """)
 
-# GIF/Resim kaldırıldı
-
 st.subheader("❓ Test Your Knowledge")
 q1 = st.radio(
     "Which of the following is NOT a typical meteor composition?",
@@ -314,4 +316,3 @@ if q1:
         st.success("✅ Correct! Meteors are mostly made of stone, iron, or ice.")
     else:
         st.error("❌ Not quite. Remember, meteors are natural rocks or metals!")
-
